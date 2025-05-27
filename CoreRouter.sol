@@ -12,11 +12,6 @@ import "./interaces/LendtrollerInterfaceV2.sol";
 import "./interaces/LendInterface.sol";
 import "./interaces/UniswapAnchoredViewInterface.sol";
 
-/**
- * @title CoreRouter
- * @notice Handles all same-chain lending operations including supply, borrow, redeem, and liquidate
- * @dev Works in conjunction with LendStorage for state management
- */
 contract CoreRouter is Ownable, ExponentialNoError {
     using SafeERC20 for IERC20;
 
@@ -45,19 +40,10 @@ contract CoreRouter is Ownable, ExponentialNoError {
 
     receive() external payable {}
 
-    /**
-     * @notice Sets the address of the cross-chain router
-     * @param _crossChainRouter The address of the cross-chain router
-     */
     function setCrossChainRouter(address _crossChainRouter) external onlyOwner {
         crossChainRouter = _crossChainRouter;
     }
 
-    /**
-     * @dev Allows users to supply tokens to mint lTokens in the Compound protocol.
-     * @param _amount The amount of tokens to supply.
-     * @param _token The address of the token to be supplied.
-     */
     function supply(uint256 _amount, address _token) external {
         address _lToken = lendStorage.underlyingTolToken(_token);
 
@@ -91,12 +77,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         emit SupplySuccess(msg.sender, _lToken, _amount, mintTokens);
     }
 
-    /**
-     * @dev Redeems lTokens for underlying tokens and transfers them to the user.
-     * @param _amount The amount of lTokens to redeem.
-     * @param _lToken The address of the lToken to be redeemed.
-     * @return An enum indicating the error status.
-     */
     function redeem(uint256 _amount, address payable _lToken) external returns (uint256) {
         // Redeem lTokens
         address _token = lendStorage.lTokenToUnderlying(_lToken);
@@ -137,11 +117,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         return 0;
     }
 
-    /**
-     * @notice Borrows tokens using supplied collateral
-     * @param _amount Amount of tokens to borrow
-     * @param _token Address of the token to borrow
-     */
     function borrow(uint256 _amount, address _token) external {
         require(_amount != 0, "Zero borrow amount");
 
@@ -189,9 +164,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         emit BorrowSuccess(msg.sender, _lToken, lendStorage.getBorrowBalance(msg.sender, _lToken).amount);
     }
 
-    /**
-     * @dev Only callable by CrossChainRouter
-     */
     function borrowForCrossChain(address _borrower, uint256 _amount, address _destlToken, address _destUnderlying)
         external
     {
@@ -204,11 +176,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         IERC20(_destUnderlying).transfer(_borrower, _amount);
     }
 
-    /**
-     * @notice Repays borrowed tokens
-     * @param _amount The amount of tokens to repay. Pass `type(uint).max` to repay the maximum borrow amount.
-     * @param _lToken The address of the lToken representing the borrowed asset
-     */
     function repayBorrow(uint256 _amount, address _lToken) public {
         repayBorrowInternal(msg.sender, msg.sender, _amount, _lToken, true);
     }
@@ -220,13 +187,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         repayBorrowInternal(_borrower, _liquidator, _amount, _lToken, false);
     }
 
-    /**
-     * @notice Liquidates a borrower's position for same chain borrows.
-     * @param borrower The address of the borrower
-     * @param repayAmount The amount to repay
-     * @param lTokenCollateral The address of the collateral lToken
-     * @param borrowedAsset The address of the asset that was borrowed
-     */
     function liquidateBorrow(address borrower, uint256 repayAmount, address lTokenCollateral, address borrowedAsset)
         external
     {
@@ -243,16 +203,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         );
     }
 
-    /**
-     * @notice Internal function to liquidate a borrower's position
-     * @param liquidator The address of the liquidator
-     * @param borrower The address of the borrower
-     * @param repayAmount The amount to repay
-     * @param lTokenCollateral The address of the collateral lToken
-     * @param borrowedlToken The address of the borrowing lToken
-     * @param collateral The collateral amount
-     * @param borrowed The borrowed amount
-     */
     function liquidateBorrowInternal(
         address liquidator,
         address borrower,
@@ -317,15 +267,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         emit LiquidateBorrow(sender, borrowedlToken, borrower, lTokenCollateral);
     }
 
-    /**
-     * @notice Checks if liquidation is allowed
-     * @param lTokenBorrowed The address of the borrowing lToken
-     * @param borrower The address of the borrower
-     * @param repayAmount The amount to repay
-     * @param collateral The collateral amount
-     * @param borrowed The borrowed amount
-     * @return uint An error code (0 if no error)
-     */
     function liquidateBorrowAllowedInternal(
         address payable lTokenBorrowed,
         address borrower,
@@ -360,13 +301,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         return 0;
     }
 
-    /**
-     * @notice Claims LEND tokens for users
-     * @param holders Array of addresses to claim for
-     * @param lTokens Array of lToken markets
-     * @param borrowers Whether to claim for borrowers
-     * @param suppliers Whether to claim for suppliers
-     */
     function claimLend(address[] memory holders, LToken[] memory lTokens, bool borrowers, bool suppliers) external {
         LendtrollerInterfaceV2(lendtroller).claimLend(address(this));
 
@@ -407,12 +341,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         }
     }
 
-    /**
-     * @dev Grants LEND tokens to a user
-     * @param user The recipient
-     * @param amount The amount to grant
-     * @return uint256 Remaining amount if grant failed
-     */
     function grantLendInternal(address user, uint256 amount) internal returns (uint256) {
         address lendAddress = LendtrollerInterfaceV2(lendtroller).getLendAddress();
         uint256 lendBalance = IERC20(lendAddress).balanceOf(address(this));
@@ -424,22 +352,12 @@ contract CoreRouter is Ownable, ExponentialNoError {
         return amount;
     }
 
-    /**
-     * @dev Enters markets in the lendtroller
-     * @param _lToken The lToken market to enter
-     */
     function enterMarkets(address _lToken) internal {
         address[] memory lTokens = new address[](1);
         lTokens[0] = _lToken;
         LendtrollerInterfaceV2(lendtroller).enterMarkets(lTokens);
     }
 
-    /**
-     * @dev Approves tokens for spending
-     * @param _token The token to approve
-     * @param _approvalAddress The address to approve
-     * @param _amount The amount to approve
-     */
     function _approveToken(address _token, address _approvalAddress, uint256 _amount) internal {
         uint256 currentAllowance = IERC20(_token).allowance(address(this), _approvalAddress);
         if (currentAllowance < _amount) {
@@ -450,12 +368,6 @@ contract CoreRouter is Ownable, ExponentialNoError {
         }
     }
 
-    /**
-     * @notice Internal function to repay borrowed tokens
-     * @param borrower The address of the borrower
-     * @param _amount The amount of tokens to repay
-     * @param _lToken The address of the lToken representing the borrowed asset
-     */
     function repayBorrowInternal(
         address borrower,
         address liquidator,
