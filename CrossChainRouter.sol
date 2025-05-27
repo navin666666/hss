@@ -15,11 +15,6 @@ import "./interaces/LendtrollerInterfaceV2.sol";
 import "./interaces/LendInterface.sol";
 import "./interaces/UniswapAnchoredViewInterface.sol";
 
-/**
- * @title CrossChainRouter
- * @notice Handles all cross-chain lending operations
- * @dev Works with LendStorage for state management and LayerZero for cross-chain messaging
- */
 contract CrossChainRouter is OApp, ExponentialNoError {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;
@@ -35,15 +30,7 @@ contract CrossChainRouter is OApp, ExponentialNoError {
 
     // Struct for LayerZero payload
     struct LZPayload {
-        uint256 amount;
-        uint256 borrowIndex;
-        uint256 collateral;
-        address sender;
-        address destlToken;
-        address liquidator;
-        address srcToken;
-        uint8 contractType;
-    }
+        uint256 amount; uint256 borrowIndex; uint256 collateral; address sender; address destlToken;  address liquidator;  address srcToken; uint8 contractType; }
 
     enum ContractType {
         BorrowCrossChain,
@@ -63,14 +50,6 @@ contract CrossChainRouter is OApp, ExponentialNoError {
     event RepaySuccess(address repayBorrowPayer, address lToken, uint256 repayBorrowAccountBorrows);
     event BorrowSuccess(address indexed borrower, address indexed token, uint256 accountBorrow);
 
-    /**
-     * @notice Constructor initializes the contract with required addresses
-     * @param _endpoint LayerZero endpoint
-     * @param _delegate Delegate address
-     * @param _lendStorage LendStorage contract address
-     * @param _priceOracle PriceOracle contract address
-     * @param _lendtroller Lendtroller contract address
-     */
     constructor(
         address _endpoint,
         address _delegate,
@@ -100,16 +79,6 @@ contract CrossChainRouter is OApp, ExponentialNoError {
         require(success, "ETH transfer failed");
     }
 
-    /**
-     * ============================================ USER FUNCTIONS ============================================
-     */
-
-    /**
-     * @notice Initiates a cross-chain borrow. Initiated on the source chain (Chain A)
-     * @param _amount Amount to borrow
-     * @param _borrowToken Token to borrow on destination chain
-     * @param _destEid Destination chain's layer zero endpoint id
-     */
     function borrowCrossChain(uint256 _amount, address _borrowToken, uint32 _destEid) external payable {
         require(msg.sender != address(0), "Invalid sender");
         require(_amount != 0, "Zero borrow amount");
@@ -161,14 +130,6 @@ contract CrossChainRouter is OApp, ExponentialNoError {
         repayCrossChainBorrowInternal(_borrower, msg.sender, _amount, _lToken, _srcEid);
     }
 
-    /**
-     * @notice Initiates a cross-chain liquidation. This is called on Chain B (where the debt exists)
-     * @param borrower The address of the borrower to liquidate
-     * @param repayAmount The amount of the borrowed asset to repay
-     * @param srcEid The chain ID where the collateral exists (Chain A)
-     * @param lTokenToSeize The collateral token the liquidator will seizes' address on the current chain
-     * @param borrowedAsset The borrowed asset address on this chain (Chain B)
-     */
     function liquidateCrossChain(
         address borrower,
         uint256 repayAmount,
@@ -305,10 +266,6 @@ contract CrossChainRouter is OApp, ExponentialNoError {
         }
     }
 
-    /**
-     * @notice Handles the final liquidation execution on Chain A (collateral chain)
-     * @param payload The decoded message payload
-     */
     function _handleLiquidationExecute(LZPayload memory payload, uint32 srcEid) private {
         // Execute the seize of collateral
         uint256 protocolSeizeShare = mul_(payload.amount, Exp({mantissa: lendStorage.PROTOCOL_SEIZE_SHARE_MANTISSA()}));
@@ -470,11 +427,7 @@ contract CrossChainRouter is OApp, ExponentialNoError {
         );
     }
 
-    /**
-     * @dev - Received on Chain A.
-     * - The tokens are escrowed in this contract, return them back to the liquidator
-     * - These tokens are the underlying tokens of payload.destlToken
-     */
+
     function _handleLiquidationFailure(LZPayload memory payload) private {
         address underlying = lendStorage.lTokenToUnderlying(payload.destlToken);
 
